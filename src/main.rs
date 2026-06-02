@@ -2,11 +2,17 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use crate::utils::validate_input;
+use crate::{utils::{read_input, validate_input}};
 pub mod utils;
+pub mod types;
 
 fn main() {
-    match validate_input("hello.com") {
+    let domain_name: String = match read_input("Enter a domain name") {
+        Some(name) => name,
+        None => return
+    };
+
+    match validate_input(&domain_name) {
         Ok(()) => (),
         Err(error) => println!("{error}")
     };

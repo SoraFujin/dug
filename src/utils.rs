@@ -19,11 +19,10 @@ where T: FromStr{
             return None;
         }
     };
-    // validate_input(&result);
     Some(result)
 }
 
-pub fn validate_input(input: &str) -> Result<(), String>{
+pub fn validate_input(input: &str) -> Result<(), String> {
     let input = input.trim();
     // First Check: Make sure it has a dot in it
     if !input.contains(".") {
