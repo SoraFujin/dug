@@ -5,12 +5,15 @@
 use std::{env::args, net::UdpSocket};
 use std::env;
 use crate::builder::create_message;
+use crate::decoder::parser;
 use crate::encoder::encode_message;
 use crate::types::Type;
 use crate::{utils::{read_input, validate_input}};
 pub mod utils;
+pub mod errors;
 pub mod types;
 pub mod encoder;
+pub mod decoder;
 pub mod builder;
 
 fn main() {
@@ -40,8 +43,11 @@ fn main() {
         Ok(()) => (),
         Err(error) => {
             println!("{error}");
+            return
         }
     };
+
+    println!("Hello");
 }
 
 
@@ -60,6 +66,7 @@ fn udp(domain_name: String) -> std::io::Result<()> {
     let mut buf = [0u8; 512];
 
     let (amt, src) = socket.recv_from(&mut buf)?;
+    parser(buf.to_vec(), &message);
 
     println!("Received {} bytes back from {}", amt, src);
     println!("--------------------------------------------------");

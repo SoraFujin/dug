@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::{fmt::Display, net::{Ipv4Addr, Ipv6Addr}};
 
 pub struct Message {
     header: Header,
@@ -70,6 +70,12 @@ impl Header {
             ns_count_bytes[0], ns_count_bytes[1],
             ar_count_bytes[0], ar_count_bytes[1],
         ]
+    }
+
+    // I only need to access the ID in order to match and check if the response for the same
+    // query/question
+    pub fn id(&self) -> u16 {
+        self.id
     }
 }
 
@@ -160,6 +166,25 @@ impl Type {
         let value = *self as u16;
         value.to_be_bytes()
     }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::A => write!(f, "A"),
+            Type::AAAA => write!(f, "AAAA"),
+            Type::NS => write!(f, "NS"),
+            Type::CNAME => write!(f, "CNAME"),
+            Type::SOA => write!(f, "SOA"),
+            Type::WKS => write!(f, "WKS"),
+            Type::PTR => write!(f, "PTR"),
+            Type::HINFO => write!(f, "HINFO"),
+            Type::MINFO => write!(f, "MINFO"),
+            Type::MX => write!(f, "MX"),
+            Type::TXT => write!(f, "TXT")
+        }
+    }
+    
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
