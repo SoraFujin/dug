@@ -10,7 +10,9 @@ pub enum DnsError {
     IdMismatch { expected: u16, got: u16 },
     InvalidRdataLength { record_type: Type, length: u16 },
     InvalidUtf8(std::string::FromUtf8Error),
-    Io(std::io::Error)
+    Io(std::io::Error),
+    UnknownType(u16),
+    UnknownClass(u16),
 }
 
 impl Display for DnsError {
@@ -25,7 +27,9 @@ impl Display for DnsError {
             DnsError::InvalidRdataLength { record_type, length } => 
                 write!(f, "invalid RDATA length {length} for record type {record_type}"),
             DnsError::InvalidUtf8(value) => write!(f, "Error not valide UTF-8 {value}"),
-            DnsError::Io(error) => write!(f, "Error Input output {error}")
+            DnsError::Io(error) => write!(f, "Error Input output {error}"),
+            DnsError::UnknownType(value) => write!(f, "Error Unknown type {value}"),
+            DnsError::UnknownClass(value) => write!(f, "Error unknown class {value}")
         }
     }
 }

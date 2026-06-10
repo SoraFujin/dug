@@ -1,5 +1,6 @@
 use std::{fmt::Display, net::{Ipv4Addr, Ipv6Addr}};
 
+#[derive(Debug)]
 pub struct Message {
     header: Header,
     question: Vec<Question>,
@@ -40,6 +41,7 @@ impl Message {
     }
 }
 
+#[derive(Debug)]
 pub struct Header {
     id: u16,
     flags: u16,
@@ -79,6 +81,7 @@ impl Header {
     }
 }
 
+#[derive(Debug)]
 pub struct Question {
     pub qname: String,
     pub qtype: Type,
@@ -105,11 +108,13 @@ impl Question {
     }
 }
 
+#[derive(Debug)]
 pub struct RR {
     name: String,
     rr_type: Type,
     class: Class,
     ttl: u32,
+    // rdata length no need to be added here 
     rdata: RData,
 }
 
@@ -153,10 +158,8 @@ pub enum Type {
     NS = 2,
     CNAME = 5,
     SOA = 6,
-    WKS = 11,
     PTR = 12,
     HINFO = 13,
-    MINFO = 14,
     MX = 15,
     TXT = 16,
 }
@@ -176,10 +179,8 @@ impl Display for Type {
             Type::NS => write!(f, "NS"),
             Type::CNAME => write!(f, "CNAME"),
             Type::SOA => write!(f, "SOA"),
-            Type::WKS => write!(f, "WKS"),
             Type::PTR => write!(f, "PTR"),
             Type::HINFO => write!(f, "HINFO"),
-            Type::MINFO => write!(f, "MINFO"),
             Type::MX => write!(f, "MX"),
             Type::TXT => write!(f, "TXT")
         }

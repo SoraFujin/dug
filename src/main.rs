@@ -5,9 +5,9 @@
 use std::{env::args, net::UdpSocket};
 use std::env;
 use crate::builder::create_message;
-use crate::decoder::parser;
 use crate::encoder::encode_message;
-use crate::types::Type;
+use crate::errors::DnsError;
+use crate::types::{Message, Type};
 use crate::{utils::{read_input, validate_input}};
 pub mod utils;
 pub mod errors;
@@ -43,15 +43,13 @@ fn main() {
         Ok(()) => (),
         Err(error) => {
             println!("{error}");
-            return
         }
     };
 
-    println!("Hello");
 }
 
 
-fn udp(domain_name: String) -> std::io::Result<()> {
+fn udp(domain_name: String) -> Result<(), DnsError> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
 
     socket.set_read_timeout(Some(std::time::Duration::from_secs(3)))?;
@@ -66,12 +64,13 @@ fn udp(domain_name: String) -> std::io::Result<()> {
     let mut buf = [0u8; 512];
 
     let (amt, src) = socket.recv_from(&mut buf)?;
-    parser(buf.to_vec(), &message);
+    let message = Message::try_from(&buf[..amt])?;
 
     println!("Received {} bytes back from {}", amt, src);
-    println!("--------------------------------------------------");
-    println!("{:?}", &buf[..amt]);
-    println!("--------------------------------------------------");
+    // println!("--------------------------------------------------");
+    println!("{:?}", message);
+    // println!("{:?}", &buf[..amt]);
+    // println!("--------------------------------------------------");
 
     Ok(())
 }
