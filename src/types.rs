@@ -74,10 +74,16 @@ impl Header {
         ]
     }
 
-    // I only need to access the ID in order to match and check if the response for the same
-    // query/question
     pub fn id(&self) -> u16 {
         self.id
+    }
+
+    pub fn flags(&self) -> u16 {
+        self.flags
+    }
+
+    pub fn tc_bit(&self) -> bool {
+        (self.flags & 0x0200) != 0
     }
 }
 
