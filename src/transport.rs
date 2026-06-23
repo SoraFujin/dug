@@ -1,29 +1,31 @@
 use std::{io::{Read, Write}, net::{TcpStream, UdpSocket}, time::Duration};
 use crate::{builder::create_message, encoder::encode_message, errors::DnsError, types::{Message, Type}};
 
-pub fn connect_udp(domain_name: String) -> Result<(), DnsError> {
+pub fn connect_udp(domain_name: String, record_type: Type) -> Result<(), DnsError> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
 
     socket.set_read_timeout(Some(std::time::Duration::from_secs(3)))?;
 
     let domain_name2 = domain_name.clone();
-    let message = create_message(domain_name, Type::A, true);
+    let message = create_message(domain_name, record_type, true);
     let encoded_message = encode_message(&message);
 
     socket.send_to(&encoded_message, "8.8.8.8:53")?;
 
     let mut buf = [0u8; 512];
 
-    let (amt, src) = socket.recv_from(&mut buf)?;
-    let message = Message::try_from(&buf[..amt])?;
+    let (amt, _) = socket.recv_from(&mut buf)?;
+    let message_response = Message::try_from(&buf[..amt])?;
 
-    if message.header().tc_bit() {
-        println!("Too big fallback to TCP");
-        return connect_tcp(domain_name2)
+    if message.header().id() == message_response.header().id() {
+        if message_response.header().tc_bit() {
+            println!("Too big fallback to TCP");
+            return connect_tcp(domain_name2, record_type)
+        }
+        println!("{message_response}");
+    } else {
+        return Err(DnsError::IdMismatch { expected: message.header().id(), got: message_response.header().id() })
     }
-
-    println!("Received {} bytes back from {}", amt, src);
-    println!("{:#?}", message);
 
     Ok(())
 }
@@ -44,12 +46,12 @@ fn read_dns_message(stream: &mut TcpStream) -> Result<Message, DnsError> {
     Ok(msg)
 }
 
-fn connect_tcp(domain_name: String) -> Result<(), DnsError> {
+fn connect_tcp(domain_name: String, record_type: Type) -> Result<(), DnsError> {
     let mut socket = TcpStream::connect("8.8.8.8:53")?;
 
     socket.set_read_timeout(Some(Duration::from_secs(3)))?;
 
-    let message = create_message(domain_name, Type::A, true);
+    let message = create_message(domain_name, record_type, true);
     let encoded = encode_message(&message);
 
     let len = (encoded.len() as u16).to_be_bytes();
@@ -59,7 +61,11 @@ fn connect_tcp(domain_name: String) -> Result<(), DnsError> {
 
     let response = read_dns_message(&mut socket)?;
 
-    println!("{:#?}", response);
+    if message.header().id() == response.header().id() {
+        println!("{response}");
+    } else {
+        return Err(DnsError::IdMismatch { expected: message.header().id(), got: response.header().id() })
+    }
 
     Ok(())
 }

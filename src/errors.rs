@@ -9,9 +9,9 @@ pub enum DnsError {
     PointerLoop,
     IdMismatch { expected: u16, got: u16 },
     InvalidRdataLength { record_type: Type, length: u16 },
-    InvalidUtf8(std::string::FromUtf8Error),
     Io(std::io::Error),
     UnknownType(u16),
+    UnknownTypeString(String),
     UnknownClass(u16),
 }
 
@@ -26,9 +26,9 @@ impl Display for DnsError {
             DnsError::IdMismatch { expected, got } => write!(f, "id mismatch: expected {expected}, got {got}"),
             DnsError::InvalidRdataLength { record_type, length } => 
                 write!(f, "invalid RDATA length {length} for record type {record_type}"),
-            DnsError::InvalidUtf8(value) => write!(f, "Error not valide UTF-8 {value}"),
             DnsError::Io(error) => write!(f, "Error Input output {error}"),
             DnsError::UnknownType(value) => write!(f, "Error Unknown type {value}"),
+            DnsError::UnknownTypeString(value) => write!(f, "Error Unknown type {value}"),
             DnsError::UnknownClass(value) => write!(f, "Error unknown class {value}")
         }
     }

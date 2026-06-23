@@ -1,27 +1,3 @@
-use std::{io, str::FromStr};
-
-pub fn read_input<T>(message: &str) -> Option<T> 
-where T: FromStr{
-    println!("{message}");
-    let mut input = String::new();
-    match io::stdin().read_line(&mut input) {
-        Ok(input) => input,
-        Err(error) => {
-            eprint!("Cannot read line");
-            return None;
-        }
-    };
-
-    let result = match input.trim().parse::<T>() {
-        Ok(result) => result,
-        Err(error) => {
-            eprintln!("Cannot parse value");
-            return None;
-        }
-    };
-    Some(result)
-}
-
 pub fn validate_input(input: &str) -> Result<(), String> {
     let input = input.trim();
     // First Check: Make sure it has a dot in it
@@ -63,4 +39,3 @@ pub fn validate_input(input: &str) -> Result<(), String> {
 
     Ok(())
 }
-

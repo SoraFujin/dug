@@ -1,4 +1,4 @@
-use crate::types::{Header, Message, Question};
+use crate::types::Message;
 
 pub fn encode_message(msg: &Message) -> Vec<u8> {
     let mut packet: Vec<u8> = Vec::new();

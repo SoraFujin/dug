@@ -1,5 +1,7 @@
 use std::{fmt::Display, net::{Ipv4Addr, Ipv6Addr}};
 
+use crate::errors::DnsError;
+
 #[derive(Debug)]
 pub struct Message {
     header: Header,
@@ -85,6 +87,78 @@ impl Header {
     pub fn tc_bit(&self) -> bool {
         (self.flags & 0x0200) != 0
     }
+
+    fn opcode_str(&self) -> &'static str {
+        match (self.flags >> 11) & 0xF {
+            0 => "QUERY",
+            1 => "IQUERY",
+            2 => "STATUS",
+            _ => "UNKNOWN",
+        }
+    }
+
+    fn status_str(&self) -> &'static str {
+        match self.flags & 0xF {
+            0 => "NOERROR",
+            1 => "FORMERR",
+            2 => "SERVFAIL",
+            3 => "NXDOMAIN",
+            4 => "NOTIMP",
+            5 => "REFUSED",
+            _ => "UNKNOWN",
+        }
+    }
+
+    fn flag_labels(&self) -> String {
+        let mut labels: Vec<&str> = Vec::new();
+        if self.flags & 0x8000 != 0 { labels.push("qr"); }
+        if self.flags & 0x0400 != 0 { labels.push("aa"); }
+        if self.flags & 0x0200 != 0 { labels.push("tc"); }
+        if self.flags & 0x0100 != 0 { labels.push("rd"); }
+        if self.flags & 0x0080 != 0 { labels.push("ra"); }
+        labels.join(" ")
+    }
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let h = &self.header;
+
+        writeln!(f, ";; ->>HEADER<<- opcode: {}, status: {}, id: {}",
+            h.opcode_str(), h.status_str(), h.id)?;
+        writeln!(f, ";; flags: {}; QUERY: {}, ANSWER: {}, AUTHORITY: {}, ADDITIONAL: {}",
+            h.flag_labels(), h.qd_count, h.an_count, h.ns_count, h.ar_count)?;
+
+        if !self.question.is_empty() {
+            writeln!(f, "\n;; QUESTION SECTION:")?;
+            for q in &self.question {
+                writeln!(f, "{q}")?;
+            }
+        }
+
+        if !self.answer.is_empty() {
+            writeln!(f, "\n;; ANSWER SECTION:")?;
+            for rr in &self.answer {
+                writeln!(f, "{rr}")?;
+            }
+        }
+
+        if !self.authority.is_empty() {
+            writeln!(f, "\n;; AUTHORITY SECTION:")?;
+            for rr in &self.authority {
+                writeln!(f, "{rr}")?;
+            }
+        }
+
+        if !self.additional.is_empty() {
+            writeln!(f, "\n;; ADDITIONAL SECTION:")?;
+            for rr in &self.additional {
+                writeln!(f, "{rr}")?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -96,12 +170,10 @@ pub struct Question {
 
 impl Question {
     pub fn new(qname: String, qtype: Type, qclass: Class) -> Self {
-        // Plain string storage, no extra allocations, completely safe.
         Self { qname, qtype, qclass }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        // Encodes directly into a fresh vector at transmission time
         let mut bytes = encode_dns_name(&self.qname);
 
         let qtype_bytes = self.qtype.to_bytes();
@@ -114,13 +186,18 @@ impl Question {
     }
 }
 
+impl Display for Question {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, ";{}\t\t{}\t{}", self.qname, self.qclass, self.qtype)
+    }
+}
+
 #[derive(Debug)]
 pub struct RR {
     name: String,
     rr_type: Type,
     class: Class,
     ttl: u32,
-    // rdata length no need to be added here 
     rdata: RData,
 }
 
@@ -155,6 +232,12 @@ impl RR {
     }
 }
 
+impl Display for RR {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\t{}\t{}\t{}\t{}", self.name, self.ttl, self.class, self.rr_type, self.rdata)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
 #[allow(clippy::upper_case_acronyms)]
@@ -175,6 +258,21 @@ impl Type {
         let value = *self as u16;
         value.to_be_bytes()
     }
+
+    pub fn get_type(record_type: &str) -> Result<Type, DnsError> {
+        match record_type {
+            "A" => Ok(Self::A),
+            "AAAA" => Ok(Self::AAAA),
+            "NS" => Ok(Self::NS),
+            "CNAME" => Ok(Self::CNAME),
+            "SOA" => Ok(Self::SOA),
+            "PTR" => Ok(Self::PTR),
+            "HINFO" => Ok(Self::HINFO),
+            "MX" => Ok(Self::MX),
+            "TXT" => Ok(Self::TXT),
+            _ => Err(DnsError::UnknownTypeString(record_type.to_string()))
+        }
+    }
 }
 
 impl Display for Type {
@@ -191,8 +289,8 @@ impl Display for Type {
             Type::TXT => write!(f, "TXT")
         }
     }
-    
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
@@ -200,6 +298,16 @@ pub enum Class {
     IN = 1,
     CH = 3,
     HS = 4
+}
+
+impl Display for Class {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Class::IN => write!(f, "IN"),
+            Class::CH => write!(f, "CH"),
+            Class::HS => write!(f, "HS")
+        }
+    }
 }
 
 impl Class {
@@ -235,6 +343,22 @@ pub enum RData {
         minimum: u32
     },
     TXT(String),
+}
+
+impl Display for RData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RData::A(ip) => write!(f, "{ip}"),
+            RData::AAAA(ip) => write!(f, "{ip}"),
+            RData::CNAME(name) => write!(f, "{name}"),
+            RData::HINFO{cpu, os} => write!(f, "{cpu} {os}"),
+            RData::MX{preference, exchange} => write!(f, "{preference} {exchange}"),
+            RData::NS(name) => write!(f, "{name}"),
+            RData::PTR(name) => write!(f, "{name}"),
+            RData::SOA { mname, rname, serial, refresh, retry, expire, minimum } => write!(f, "{mname} {rname} {serial} {refresh} {retry} {expire} {minimum}"),
+            RData::TXT(text) => write!(f, "\"{text}\"")
+        }
+    }
 }
 
 impl RData {

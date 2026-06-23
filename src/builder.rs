@@ -1,4 +1,4 @@
-use std::{hash::{BuildHasher, Hasher, RandomState}, time::{SystemTime, UNIX_EPOCH}};
+use std::{hash::{BuildHasher, Hasher, RandomState}};
 
 use crate::types::{Header, Message, Question, Type, Class};
 

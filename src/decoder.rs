@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{Ipv4Addr, Ipv6Addr};
 use crate::{errors::DnsError, types::{Class, Header, Message, Question, RData, RR, Type}};
 
 struct Cursor<'a> {
@@ -60,18 +60,24 @@ impl<'a> Cursor<'a> {
         let mut name = String::new();
         let mut jumped = false;
         let mut resume = 0;
+        let mut last_jump = self.buf.len();
         loop {
             let first = self.read_u8()?;
             // CASE 1: Pointer
             if first & 0xC0 == 0xC0 {
                 let second = self.read_u8()?;
                 let offset = (((first & 0x3F) as usize) << 8) | (second as usize);
-                if !jumped {
-                    resume = self.position;
-                    jumped = true;
+                if offset < last_jump {
+                    if !jumped {
+                        resume = self.position;
+                        jumped = true;
+                    }
+                    self.position = offset;
+                    last_jump = offset;
+                    continue; 
+                } else {
+                    return Err(DnsError::PointerLoop)
                 }
-                self.position = offset;
-                continue; 
             } 
 
             // CASE 2: Terminator
@@ -240,7 +246,12 @@ fn read_rr(cursor: &mut Cursor) -> Result<RR, DnsError> {
     let rdata_class = cursor.read_u16()?;
     let class = Class::try_from(rdata_class)?;
     let rr_ttl = cursor.read_u32()?;
-    let _ = cursor.read_u16()?;
+    let rr_length = cursor.read_u16()?;
+    let start = cursor.position;
     let rdata = cursor.read_rdata(rr_type)?;
+    let position = cursor.position;
+    if position - start != rr_length as usize {
+        return Err(DnsError::InvalidRdataLength { record_type: rr_type, length: rr_length })
+    }
     Ok(RR::new(rr_name, rr_type, class, rr_ttl, rdata))
 }
